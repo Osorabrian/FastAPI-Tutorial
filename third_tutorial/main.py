@@ -1,7 +1,8 @@
 from enum import Enum
-from fastapi import FastAPI
+from fastapi import Body, FastAPI
 from pydantic import BaseModel, EmailStr, Field
 from uuid import UUID, uuid4
+from typing import Annotated
 
 app = FastAPI()
 
@@ -11,11 +12,14 @@ class Gender(str, Enum):
     female = "female"
     other = "other"
 
+#create a submodel
 class Education(BaseModel):
     school: str = Field(description="The name of the school")
     program: str = Field(description="The program of the user")
     gpa: float = Field(gt=0.0, le=5.0, description="The GPA of the user")
 
+#we include the submodel in the main model
+#we have included the field in the main model
 class User(BaseModel):
     user_id: UUID = Field(default_factory=uuid4, description="The ID of the user")
     first_name: str = Field(default="Brian", description="The first name of the user")
@@ -30,10 +34,55 @@ class User(BaseModel):
 def read_user(user: User):
     return user
 
+#we can specify the example of return value
 @app.post("/user")
-async def create_user(user: User):
+async def create_user(user: Annotated[User, Body(examples=[
+    {
+        "first_name" : "Brian",
+        "last_name": "Isaboke",
+        "age": 20,
+        "email": "brian@example.com",
+        "gender": "male",
+        "hobbies": ["reading", "coding", "traveling"],
+        "education": {
+            "school": "Harvard University",
+            "program": "Computer Science",
+            "gpa": 3.9,
+        }
+    }
+])]):
     return user.model_dump()
 
-@app.get("/education/multiple")
-async def read_multiple_education(education: list[Education]):
+#we can specify how we want to return the data
+#we can specify the open_api exmaple of data we expecting to be returned
+@app.post("/education/multiple")
+async def read_multiple_education(
+    education: Annotated[
+        list[Education],
+        Body(
+            openapi_examples={
+                "normal example": {
+                    "summary": "A normal example",
+                    "value": [
+                        {
+                            "school": "Harvard University",
+                            "program": "Computer Science",
+                            "gpa": 3.9,
+                        }
+                    ]
+                },
+                "converted example": {
+                    "summary": "A converted example",
+                    "value": [
+                        {
+                            "school": "Stanford University",
+                            "program": "Data Science",
+                            "gpa": "3.8",
+                        }
+                    ]
+                }
+            }
+        ),
+    ]
+):
     return education
