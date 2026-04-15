@@ -1,8 +1,17 @@
-from fastapi import FastAPI, Depends, Body, Cookie
+from fastapi import FastAPI, Depends, Body, HTTPException, Header, Cookie, status, HTTPException
 from pydantic import BaseModel, EmailStr, Field
 from typing import Annotated
 
-app = FastAPI()
+async def verify_token( x_token: Annotated[str, Header()]):
+    if x_token is not "fake-super-secret-token":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="X-Token header invalid.")
+
+async def verify_key( x_key: Annotated[str, Header()]):
+    if x_key is not "fake-super-secret-key":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="X-Key header invalid")
+
+#global dependencies - dependencies for the whole application, in this way they will be added to all path operator functions
+app = FastAPI(dependencies=[Depends(verify_token), Depends(verify_key)])
 
 class User(BaseModel):
     username: str = Field(default="Joe")
@@ -33,8 +42,9 @@ def query_or_cookie_extractor(q: Annotated[str, Depends(query_extractor)], last_
     else:
         return {"last_query": last_query}
 
+#There is a dependency in th path decorator, we ad them when they are not returning anything
+@app.get("/user/{username}", dependencies=[Depends(verify_key), Depends(verify_token)])
 #we use the dependency that calls a subdependency
-@app.get("/user/{username}")
 async def retrieve_user(username: str, query_or_default: Annotated[str, Depends(query_or_cookie_extractor)]):
     return username
 
